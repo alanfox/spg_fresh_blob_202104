@@ -93,3 +93,9 @@ target/
 # singularity 
 containers/
 *.sif
+
+# exclude executed notebooks
+/notebooks/executed/
+
+# exclude log files
+slurm*.out
