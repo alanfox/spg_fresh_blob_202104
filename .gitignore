@@ -79,6 +79,7 @@ target/
 /data/processed/
 /data/interim/
 /data/raw/
+/data/external/iAtlantic/
 
 # Mac OS-specific storage files
 .DS_Store
