@@ -79,6 +79,7 @@ target/
 /data/processed/
 /data/interim/
 /data/raw/
+*.nc
 
 # Mac OS-specific storage files
 .DS_Store
@@ -96,6 +97,11 @@ containers/
 
 # exclude executed notebooks
 /notebooks/executed/
+
+# exclude figures
+*.png
+*.pdf
+*.eps
 
 # exclude log files
 slurm*.out
