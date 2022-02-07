@@ -80,6 +80,7 @@ target/
 /data/interim/
 /data/raw/
 /data/external/iAtlantic/
+*.nc
 
 # Mac OS-specific storage files
 .DS_Store
@@ -97,6 +98,11 @@ containers/
 
 # exclude executed notebooks
 /notebooks/executed/
+
+# exclude figures
+*.pdf
+*.png
+*.eps
 
 # exclude log files
 slurm*.out
