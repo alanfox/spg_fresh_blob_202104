@@ -15,7 +15,10 @@ from dask.distributed import Client
 
 
 ```python
-client = Client(n_workers=1, threads_per_worker=8, memory_limit=10e9)
+client = Client(
+    n_workers=4, threads_per_worker=8, memory_limit=300e9,
+    ip="0.0.0.0"
+)
 client
 ```
 
@@ -25,7 +28,7 @@ client
 project_path = Path.cwd() / '..' / '..' 
 project_path = project_path.resolve()
 
-data_path = "/data/spg_fresh_blob_202104_data/raw/"
+data_path = "/gxfs_work1/geomar/smomw122/2022-02-09_spg_fresh_blob_202104_raw_data/"
 
 interim_data_path = Path('data/interim/endtracks/plusDist/')
 
@@ -43,13 +46,13 @@ year_str = str(year)
 
 
 ```python
-interim_data_filename = "endtracks_20211215_randomvel_mxl_osnap_backwards_"+year_str+"_subset_10percent.nc"
+interim_data_filename = "endtracks_20211215_randomvel_mxl_osnap_backwards_"+year_str + ".nc"
 ```
 
 
 ```python
 # data_stores_subsets = list(sorted(Path(data_path).glob("*_????_subset.zarr/")))[:use_number_subset_years]
-data_stores_subsets = list(sorted(Path(data_path).glob("*_"+year_str+"_subset_10percent.zarr/")))
+data_stores_subsets = list(sorted(Path(data_path).glob(f"*{year:04d}.zarr/")))
 ```
 
 
@@ -60,7 +63,10 @@ display(data_stores_subsets)
 
 ```python
 ds_subsets = xr.concat(
-    [xr.open_zarr(store) for store in data_stores_subsets],
+    [
+        xr.open_zarr(store, decode_cf=False)
+        for store in data_stores_subsets
+    ],
     dim="traj",
 )
 
@@ -72,8 +78,8 @@ print(ds_subsets.nbytes / 1e9, "GiB")
 
 
 ```python
-ds_subsets_lat_diff=ds_subsets.lat.diff(dim='obs',n=1)
-ds_subsets_lon_diff=ds_subsets.lat.diff(dim='obs',n=1)
+ds_subsets_lat_diff=ds_subsets.lat.diff(dim='obs', n=1)
+ds_subsets_lon_diff=ds_subsets.lat.diff(dim='obs', n=1)
 
 ```
 
@@ -110,9 +116,10 @@ ds_subsets = ds_subsets.assign({'dist':distance.cumsum(dim='obs')})
 
 
 ```python
-ds_subsets.dist.attrs = {'long_name':'alongtrack distance from OSNAP'
-                        ,'units':'metres'}
-
+ds_subsets.dist.attrs = {
+    'long_name': 'alongtrack distance from OSNAP',
+    'units': 'metres'
+}
 ```
 
 
@@ -202,8 +209,8 @@ LC60W_is_path = (LabCu_exit_index > LC60W_exit_index).where(LabCu_is_source,Fals
 
 
 ```python
-LCdir_is_path = LabCu_is_source.where(LC60W_is_path==False,False)
-other_is_source = (LabCu_is_source==False).where(GulfS_is_source == False,False)
+LCdir_is_path = LabCu_is_source.where(LC60W_is_path == False, False)
+other_is_source = (LabCu_is_source == False).where(GulfS_is_source == False, False)
 ```
 
 flag particles on osnap line by origin
@@ -244,7 +251,7 @@ GulfS_exit_index = (ds_gst_in.where(ds_subsets_osnap.GulfS_is_source,False)).arg
 # Lab current and Gulf Stream
 exit_index = LabCu_exit_index + GulfS_exit_index
 # convert zeros to max dim obs
-exit_index = exit_index.where(exit_index > 0,len(ds_subsets.obs)-1)
+exit_index = exit_index.where(exit_index > 0, len(ds_subsets.obs)-1)
 ```
 
 ### index last non nan value for 'other' parcels
@@ -253,14 +260,39 @@ exit_index = exit_index.where(exit_index > 0,len(ds_subsets.obs)-1)
 ```python
 a = ds_subsets.lat  # just a random selection of variable, nans the same for all variables
 b = (~np.isnan(a)).cumsum(dim='obs').argmax(dim='obs') # finds last non-nan in dim 'obs'. nicked from stackoverflow search
-exit_index = xr.ufuncs.minimum(exit_index,b).compute()
+exit_index = xr.ufuncs.minimum(exit_index, b).compute()
+```
+
+
+```python
+display(exit_index)
 ```
 
 ### extract source positions from full array
 
+We need to take away the _HUGE_ lookup of obs steps from the frontend process.
+So we create a 2d data var (lazily with dask) filled with obs and then do a `.where()` and a reduction.
+
 
 ```python
-ds_subsets_sourc = ds_subsets.isel(traj=xr.DataArray(range(len(ds_subsets.traj)),dims='traj'),obs=exit_index)
+ds_subsets.coords["obs"] = np.arange(ds_subsets.dims["obs"])
+ds_subsets["obs2d"] = (
+    xr.full_like(ds_subsets.lat, 0, dtype="int")
+    + ds_subsets.coords["obs"]
+)
+```
+
+
+```python
+%%time
+
+ds_subsets_sourc = ds_subsets.where(
+    ds_subsets.obs2d == exit_index
+).mean("obs")
+
+ds_subsets_sourc = ds_subsets_sourc.compute()
+
+display(ds_subsets_sourc)
 ```
 
 add the source and pathway flags to ds_subsets_sourc to match for xr.concat
@@ -303,13 +335,34 @@ b = b.compute()
 
 
 ```python
-ds_subsets_domexi = ds_subsets.isel(traj=xr.DataArray(range(len(ds_subsets.traj)),dims='traj'),obs=b)
+display(b)
+```
+
+
+```python
+%%time
+
+ds_subsets_domexi = ds_subsets.where(
+    ds_subsets.obs2d == b
+).mean("obs")
+
+ds_subsets_domexi = ds_subsets_domexi.compute()
+
+display(ds_subsets_domexi)
+
+# ds_subsets_domexi = ds_subsets.isel(
+#     traj=xr.DataArray(range(len(ds_subsets.traj)),dims='traj'),
+#     obs=b
+# )
+
 ```
 
 
 ```python
 # counts how many times enters or leaves lab sea
-spgnoloop = (abs(ds_lab_in.astype(int).diff(dim='obs')).sum(dim='obs')<3).compute()
+spgnoloop = (
+    abs(ds_lab_in.astype(int).diff(dim='obs')).sum(dim='obs') < 3
+).compute()
 ```
 
 
@@ -319,13 +372,13 @@ ds_in1, ds_notin1 = apply_left_of_line(ds_subsets,-68,-68,33,63)
 ds_in2, ds_notin2 = apply_left_of_line(ds_subsets,-95,-60,52,52)
 ds_hud_in = ds_in1*ds_in2
 
-HudBa = ds_hud_in.max("obs")
+HudBa = ds_hud_in.max("obs").compute()
 
 ```
 
 
 ```python
-HudBa.data.compute()
+# HudBa.data.compute()
 ```
 
 
@@ -333,23 +386,23 @@ HudBa.data.compute()
 Green_is_source = (ds_subsets_paths.isel(ends=0).LabCu_is_source &
                   (ds_subsets_domexi.lat > 65) & 
                   (ds_subsets_domexi.lon > -44) &
-                  spgnoloop)
+                  spgnoloop).compute()
 Davis_is_source = (ds_subsets_paths.isel(ends=0).LabCu_is_source &
                   (ds_subsets_domexi.lat > 65) & 
                   (ds_subsets_domexi.lon < -44) &
-                  spgnoloop)
+                  spgnoloop).compute()
 Hudba_is_source = (ds_subsets_paths.isel(ends=0).LabCu_is_source & 
                   HudBa &
-                  spgnoloop)
+                  spgnoloop).compute()
 ```
 
 
 ```python
-Green_is_source = xr.concat([(Green_is_source),(Green_is_source)],dim='ends')
+Green_is_source = xr.concat([(Green_is_source),(Green_is_source)],dim='ends').compute()
 ds_subsets_paths = ds_subsets_paths.assign({'Green_is_source':Green_is_source})
-Davis_is_source = xr.concat([(Davis_is_source),(Davis_is_source)],dim='ends')
+Davis_is_source = xr.concat([(Davis_is_source),(Davis_is_source)],dim='ends').compute()
 ds_subsets_paths = ds_subsets_paths.assign({'Davis_is_source':Davis_is_source})
-Hudba_is_source = xr.concat([(Hudba_is_source),(Hudba_is_source)],dim='ends')
+Hudba_is_source = xr.concat([(Hudba_is_source),(Hudba_is_source)],dim='ends').compute()
 ds_subsets_paths = ds_subsets_paths.assign({'Hudba_is_source':Hudba_is_source})
 
 ```
@@ -414,17 +467,32 @@ north_all = north_oe * (north_c  + (north_b * north_d))
 
 
 ```python
+lonlat
+```
+
+
+```python
 north_all = north_all.reset_coords(drop=True)
 south_all = south_all.reset_coords(drop=True)
 ```
 
 
 ```python
+north_all
+```
+
+
+```python
+north_all = north_all.persist()
+```
+
+
+```python
 # test individual positions to see when the parcel was first (in 'obs', last in time) north of osnap line
 # defaults to zero if particular source was not on track
-north_osnap_index = (north_all).argmax(axis=1)
+north_osnap_index = (north_all).argmax(axis=1).compute()
 # convert zeros to max dim obs
-north_osnap_index = north_osnap_index.where(north_osnap_index > 0,len(ds_subsets.obs)-1)
+north_osnap_index = north_osnap_index.where(north_osnap_index > 0,len(ds_subsets.obs)-1).compute()
 ```
 
 Check if found north of osnap e between leaving source and arriving at osnap and flag to ds_subsets_paths
@@ -441,20 +509,20 @@ display(ds_subsets_paths)
 
 
 ```python
+ds_subsets_paths = ds_subsets_paths.persist()
+```
+
+
+```python
+!mkdir -p {str((project_path / interim_data_path / interim_data_filename).parent)}
+```
+
+
+```python
 ds_subsets_paths.to_netcdf(project_path / interim_data_path / interim_data_filename)
 ```
 
 
 ```python
 conda list
-```
-
-
-```python
-
-```
-
-
-```python
-
 ```
