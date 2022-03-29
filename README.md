@@ -3,6 +3,15 @@ spg_fresh_blob_202104
 
 Lagrangian particle tracking of Subpolar Gyre freshening using Viking20x and Ocean Parcels
 
+Code for the particle tracking and analysis for the Fox et al. 2022 paper "Exceptional freshening and cooling in the eastern subpolar North Atlantic caused by reduced Labrador Sea surface heat loss".
+
+Particle tracking uses OceanParcels. All analysis done in jupyter notebooks.
+
+
+
+
+
+
 Project Organization
 ------------
 
