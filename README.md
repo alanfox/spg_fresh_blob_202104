@@ -7,7 +7,32 @@ Code for the particle tracking and analysis for the Fox et al. 2022 paper "Excep
 
 Particle tracking uses OceanParcels. All analysis done in jupyter notebooks.
 
+### Code to run the particle tracking
 
+    notebooks/037_afox_RunParcels*
+    The large trajectory output files are stored at GEOMAR: https://hdl.handle.net/20.500.12085/830c72af-b5ca-44ac-8357-3173392f402b
+
+### Extract pathways, times and distances
+
+    notebooks/exploratory/115_afox*.ipynb
+    
+Extracts the pathways, transit times and distances from the full track dataset. Stores in a reduced form with start and end points
+
+### Labrador Sea water mass analysis
+
+    notebooks/exploratory/2*.ipynb
+    
+Calculates the water mass budget in density space from the VIKING20X data: inflow, outflow, volume change, transformations due to surface fluxes of heat and freshwater.
+
+### Sums and means of track metrics
+
+    notebooks/exploratory/3*.ipynb
+    
+Calculates sums and means from the outputs of notebooks/exploratory/115_afox*.ipynb by source and pathway.
+
+### Plots for the paper
+
+    notebooks/exploratory/4*.ipynb
 
 
 
