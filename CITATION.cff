@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Fox"
+  given-names: "Alan D."
+  orcid: "https://orcid.org/0000-0002-9047-1986"
+- family-names: "Rath"
+  given-names: "Willi"
+  orcid: "https://orcid.org/0000-0003-1951-8494"
+- family-names: "Schmidt"
+  given-names: "Christina"
+  orcid: "https://orcid.org/0000-0002-7672-5054"
+title: "Code used in Fox et al 2022. Exceptional freshening and cooling in the eastern subpolar North Atlantic caused by reduced Labrador Sea surface heat loss"
+version: v0.1
+doi: https://doi.org/10.5281/zenodo.6393656
+date-released: 2017-12-18
+url: "https://github.com/alanfox/spg_fresh_blob_202104"
